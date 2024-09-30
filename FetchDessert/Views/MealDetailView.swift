@@ -20,14 +20,13 @@ struct MealDetailView: View {
                     .padding(.horizontal)
                 
                 if let mealDetails = viewModel.mealDetails {
-                    let ingredientsArray = mealDetails.ingredients.map { (ingredient, measurement) -> (String, String) in
-                        return (ingredient, measurement)
-                    }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Ingredients:")
                             .font(.headline)
-                        ForEach(ingredientsArray, id: \.0) { (ingredient, measurement) in
-                            Text("- \(ingredient) (\(measurement))")
+                        ForEach(mealDetails.ingredients.keys.sorted(), id: \.self) { key in
+                            if let value = mealDetails.ingredients[key] {
+                                Text("- \(key): \(value)")
+                            }
                         }
                         Divider()
                         Text("Instructions:")
@@ -42,7 +41,9 @@ struct MealDetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            viewModel.fetchMealDetails()
+            Task {
+                await viewModel.fetchMealDetails()
+            }
         }
     }
     

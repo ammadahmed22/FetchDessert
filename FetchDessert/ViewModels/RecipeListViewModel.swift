@@ -6,26 +6,37 @@
 //
 
 import Foundation
+import Combine
 
+@MainActor
 class RecipeListViewModel: ObservableObject {
     @Published var meals: [Meal] = []
+    private var cancellables = Set<AnyCancellable>()
     
-    func fetchMeals() {
-        guard let url = URL(string: "https://www.themealdb.com/api/json/v1/1/filter.php?c=Dessert") else {
-            print("Invalid URL")
-            return
+    // Async/await version
+    func fetchMeals() async {
+        do {
+            let url = API.mealsURL(category: "Dessert")
+            let response: MealsResponse = try await NetworkManager.shared.fetch(url: url, decodingType: MealsResponse.self)
+            self.meals = response.meals
+        } catch {
+            print("Fetch failed: \(error.localizedDescription)")
         }
-        URLSession.shared.dataTask(with: url) { data, response, error in
-            if let data = data {
-                if let decodedResponse = try? JSONDecoder().decode(MealsResponse.self, from: data) {
-                    DispatchQueue.main.async {
-                        self.meals = decodedResponse.meals
-                    }
-                    return
+    }
+    
+    // Combine version
+    func fetchMealsCombine() {
+        let url = API.mealsURL(category: "Dessert")
+        
+        NetworkManager.shared.fetchPublisher(url: url, decodingType: MealsResponse.self)
+            .receive(on: DispatchQueue.main)
+            .sink { completion in
+                if case .failure(let error) = completion {
+                    print("Fetch failed: \(error.localizedDescription)")
                 }
+            } receiveValue: { response in
+                self.meals = response.meals
             }
-            // Using print statement, incase of failure.
-            print("Fetch failed: \(error?.localizedDescription ?? "Unknown error")")
-        }.resume()
+            .store(in: &cancellables)
     }
 }
